@@ -79,7 +79,7 @@
                 {{ t.name }} - USD
               </dt>
               <dd class="mt-1 text-3xl font-semibold text-gray-900">
-                {{ t.price }}
+                {{ formatPrice(t.price) }}
               </dd>
             </div>
             <div class="w-full border-t border-gray-200"></div>
@@ -150,7 +150,7 @@
 </template>
 
 <script>
-import { loadTicker } from "./api";
+import { subcribeToTicker, unsubscribeFromTicker } from "./api";
 
 export default {
   name: "App",
@@ -187,34 +187,43 @@ export default {
     const tickersData = localStorage.getItem("cryptonomicon-list");
     if (tickersData) {
       this.tickers = JSON.parse(tickersData);
+      this.tickers.forEach((ticker) => {
+        subcribeToTicker(ticker.name, (newPrice) => {
+          this.updateTicker(ticker.name, newPrice);
+        });
+      });
     }
     // локасторедж записываемс
     setInterval(this.updataTickers, 5000);
   },
 
   methods: {
+    updateTicker(tickerName, price) {
+      this.tickers
+        .filter((t) => t.name === tickerName)
+        .forEach((t) => {
+          if (t === this.selectedTicker) {
+            this.graph.push(price)
+          }
+          t.price = price
+        });
+    },
+    formatPrice(price) {
+      if (price === "-") {
+        return price;
+      }
+      return price > 1 ? price.toFixed(2) : price.toPrecision(2);
+    },
     // обновляет тикеры от сервера
     async updataTickers() {
-      if (!this.tickers.length) {
-        return;
-      }
-      const exchangeData = await loadTicker(this.tickers.map((t) => t.name));
-      this.tickers.forEach((ticker) => {
-        const price = exchangeData[ticker.name.toUpperCase()];
-        if (!price) {
-          ticker.price = "-";
-          return;
-        }
-        const normalizedPrice = 1 / price;
-        const formattedPrice =
-          normalizedPrice.USD > 1
-            ? normalizedPrice.USD.toFixed(2)
-            : normalizedPrice.USD.toPrecision(2);
-        // if (this.selectedTicker?.name === tickerName) {
-        //   this.graph.push(exchangeData.USD);
-        // }
-        ticker.price = formattedPrice;
-      });
+      // if (!this.tickers.length) {
+      //   return;
+      // }
+      // const exchangeData = await loadTickers(this.tickers.map((t) => t.name));
+      // this.tickers.forEach((ticker) => {
+      //   const price = exchangeData[ticker.name.toUpperCase()];
+      //   ticker.price = price ?? "-";
+      // });
       // const f = await fetch(
       //   `https://min-api.cryptocompare.com/data/price?fsym=${tickerName}&tsyms=USD&api_key=44d472c47aac0c16028c3e0279aaa42579e489e193a7c8cfc38840d3a0ccbe10`
       // );
@@ -227,7 +236,11 @@ export default {
         price: "-",
       };
       this.filter = "";
+      this.ticker = "";
       this.tickers = [...this.tickers, currentTicker];
+      subcribeToTicker(currentTicker.name, (newPrice) => {
+        this.updateTicker(currentTicker.name, newPrice);
+      });
     },
     // удаление ьтикера
     handleDelete(tickerToRemove) {
@@ -235,6 +248,7 @@ export default {
       if (this.selectedTicker === tickerToRemove) {
         this.selectedTicker = "";
       }
+      unsubscribeFromTicker(tickerToRemove.name);
     },
     select(ticker) {
       this.selectedTicker = ticker;
