@@ -47,11 +47,9 @@ export const subcribeToTicker = (ticker, cb) => {
   const subsribers = tickersHandlers.get(ticker) || [];
   tickersHandlers.set(ticker, [...subsribers, cb]);
   subscribeToTickerOnWs(ticker);
-  
 };
 export const unsubscribeFromTicker = (ticker) => {
   tickersHandlers.delete(ticker);
   unSubscribeFromTickerOnWs(ticker);
 };
 window.tickers = tickersHandlers;
-
